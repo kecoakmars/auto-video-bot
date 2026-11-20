@@ -27,6 +27,22 @@ def get_folder_ids(service=None):
     results = service.files().list(q=query, fields="files(id, name)").execute()
     return {f['name']: f['id'] for f in results.get('files', [])}
 
+def get_or_create_subfolder(service, parent_id, folder_name):
+    safe_name = folder_name.replace("'", "\\'")
+    query = (
+        f"'{parent_id}' in parents and name = '{safe_name}' "
+        f"and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+    res = service.files().list(q=query, fields="files(id, name)").execute().get('files', [])
+    if res:
+        return res[0]['id']
+    meta = {
+        'name': folder_name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [parent_id]
+    }
+    return service.files().create(body=meta, fields='id').execute()['id']
+
 def check_folders():
     folders = get_folder_ids()
     expected = ["01-Referensi-Style", "02-Bahan-Video", "03-Hasil-Render"]
@@ -44,13 +60,42 @@ def check_folders():
         raise RuntimeError("Ada folder yang belum sesuai di Google Drive.")
     print("\nSemua folder terhubung dengan sempurna!")
 
-def download_bahan_video(dest_dir):
+def download_bahan_video(dest_dir, target_folder_name=None):
     os.makedirs(dest_dir, exist_ok=True)
     service = get_drive_service()
     folders = get_folder_ids(service)
     bahan_id = folders["02-Bahan-Video"]
 
-    query = f"'{bahan_id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false"
+    # Cari subfolder proyek di dalam 02-Bahan-Video (kecuali 'Selesai')
+    sub_query = (
+        f"'{bahan_id}' in parents and mimeType = 'application/vnd.google-apps.folder' "
+        f"and name != 'Selesai' and trashed = false"
+    )
+    subfolders = service.files().list(
+        q=sub_query, fields="files(id, name, createdTime)", orderBy="createdTime desc"
+    ).execute().get('files', [])
+
+    active_folder_id = bahan_id
+    active_folder_name = "General"
+
+    if target_folder_name:
+        matched = [sf for sf in subfolders if sf['name'].lower() == target_folder_name.strip().lower()]
+        if not matched:
+            available = [sf['name'] for sf in subfolders]
+            raise FileNotFoundError(
+                f"Folder '{target_folder_name}' tidak ditemukan di dalam 02-Bahan-Video! "
+                f"Folder yang tersedia: {available}"
+            )
+        active_folder_id = matched[0]['id']
+        active_folder_name = matched[0]['name']
+    elif subfolders:
+        # Otomatis pilih folder proyek terbaru jika input dikosongkan
+        active_folder_id = subfolders[0]['id']
+        active_folder_name = subfolders[0]['name']
+
+    print(f"Membaca bahan video dari folder: 02-Bahan-Video/{active_folder_name}")
+
+    query = f"'{active_folder_id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false"
     results = service.files().list(q=query, fields="files(id, name, createdTime)", orderBy="name").execute()
     files = results.get('files', [])
 
@@ -71,50 +116,57 @@ def download_bahan_video(dest_dir):
             "name": f['name'],
             "local_path": local_path
         })
-    return downloaded
 
-def upload_final_video(local_path, output_name):
+    return {
+        "files": downloaded,
+        "project_name": active_folder_name,
+        "project_folder_id": active_folder_id if active_folder_id != bahan_id else None
+    }
+
+def upload_final_video(local_path, output_name, project_name=None):
     service = get_drive_service()
     folders = get_folder_ids(service)
     hasil_id = folders["03-Hasil-Render"]
 
+    target_parent_id = hasil_id
+    dest_label = "03-Hasil-Render"
+    if project_name and project_name != "General":
+        target_parent_id = get_or_create_subfolder(service, hasil_id, project_name)
+        dest_label = f"03-Hasil-Render/{project_name}"
+
     file_metadata = {
         'name': output_name,
-        'parents': [hasil_id]
+        'parents': [target_parent_id]
     }
     media = MediaFileUpload(local_path, mimetype='video/mp4', resumable=True)
     uploaded = service.files().create(body=file_metadata, media_body=media, fields='id, name').execute()
-    print(f"[SUKSES] Video terunggah ke 03-Hasil-Render: {uploaded.get('name')} (ID: {uploaded.get('id')})")
+    print(f"[SUKSES] Video terunggah ke {dest_label}: {uploaded.get('name')} (ID: {uploaded.get('id')})")
     return uploaded.get('id')
 
-def archive_processed_files(file_ids):
-    if not file_ids:
-        return
+def archive_processed_project(project_folder_id, project_name, file_ids):
     service = get_drive_service()
     folders = get_folder_ids(service)
     bahan_id = folders["02-Bahan-Video"]
+    selesai_id = get_or_create_subfolder(service, bahan_id, "Selesai")
 
-    # Cari atau buat subfolder 'Selesai' di dalam 02-Bahan-Video
-    query = f"'{bahan_id}' in parents and name = 'Selesai' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-    res = service.files().list(q=query, fields="files(id)").execute().get('files', [])
-    if res:
-        selesai_id = res[0]['id']
-    else:
-        meta = {
-            'name': 'Selesai',
-            'mimeType': 'application/vnd.google-apps.folder',
-            'parents': [bahan_id]
-        }
-        selesai_id = service.files().create(body=meta, fields='id').execute()['id']
-
-    for fid in file_ids:
+    if project_folder_id:
+        # Pindahkan seluruh folder proyek (misal 'IPTV') ke dalam 02-Bahan-Video/Selesai
         service.files().update(
-            fileId=fid,
+            fileId=project_folder_id,
             addParents=selesai_id,
             removeParents=bahan_id,
             fields='id, parents'
         ).execute()
-    print(f"[ARSIP] {len(file_ids)} file mentah dipindahkan ke folder 'Selesai'.")
+        print(f"[ARSIP] Folder '{project_name}' dipindahkan utuh ke 02-Bahan-Video/Selesai/{project_name}.")
+    elif file_ids:
+        for fid in file_ids:
+            service.files().update(
+                fileId=fid,
+                addParents=selesai_id,
+                removeParents=bahan_id,
+                fields='id, parents'
+            ).execute()
+        print(f"[ARSIP] {len(file_ids)} file dipindahkan ke 02-Bahan-Video/Selesai.")
 
 if __name__ == "__main__":
     check_folders()
