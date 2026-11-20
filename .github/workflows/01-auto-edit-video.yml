@@ -2,9 +2,12 @@ name: 01 - Auto Edit Talking Head
 
 on:
   workflow_dispatch:
-  # Hapus tanda '#' pada 2 baris di bawah jika ingin berjalan otomatis tiap jam 01.00 WIB:
-  # schedule:
-  #   - cron: '0 18 * * *'
+    inputs:
+      target_folder:
+        description: 'Nama folder di dalam 02-Bahan-Video (kosongkan untuk otomatis ambil folder terbaru)'
+        required: false
+        default: 'IPTV'
+        type: string
 
 jobs:
   auto-edit:
@@ -43,6 +46,7 @@ jobs:
         env:
           GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          TARGET_FOLDER: ${{ inputs.target_folder }}
         run: python engine-ai/prep_and_transcribe.py
 
       - name: 2. Sutradara Gemini Susun Timeline & Pilih B-Roll
