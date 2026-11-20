@@ -1,6 +1,7 @@
 import io
 import os
 import json
+from google.oauth2.credentials import Credentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
@@ -9,9 +10,24 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 VIDEO_EXTENSIONS = ('.mp4', '.mov', '.mkv', '.webm', '.avi')
 
 def get_drive_service():
+    client_id = os.environ.get("GDRIVE_CLIENT_ID")
+    client_secret = os.environ.get("GDRIVE_CLIENT_SECRET")
+    refresh_token = os.environ.get("GDRIVE_REFRESH_TOKEN")
+
+    if client_id and client_secret and refresh_token:
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=SCOPES,
+        )
+        return build('drive', 'v3', credentials=creds)
+
     creds_json = os.environ.get("GDRIVE_CREDENTIALS")
     if not creds_json:
-        raise ValueError("Secret GDRIVE_CREDENTIALS belum terbaca!")
+        raise ValueError("Kredensial Google Drive belum terbaca!")
     creds_info = json.loads(creds_json)
     creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
     return build('drive', 'v3', credentials=creds)
