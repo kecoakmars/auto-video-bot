@@ -10,6 +10,7 @@ export interface BrollOverlay {
   src: string;
   outStartFrame: number;
   durationFrames: number;
+  clipStartSec?: number;
   filter: 'crt-chromatic';
   transition: 'glitch' | 'light-leak';
 }
@@ -19,6 +20,7 @@ export interface CaptionWord {
   startFrame: number;
   endFrame: number;
   isNeon: boolean;
+  neonColor?: 'green' | 'red';
 }
 
 export interface CaptionBlock {
@@ -27,9 +29,22 @@ export interface CaptionBlock {
   words: CaptionWord[];
 }
 
+export interface CalloutOverlay {
+  type: 'url_card' | 'follow_badge' | 'store_badge' | 'step_card';
+  outStartFrame: number;
+  durationFrames: number;
+  primaryText: string;
+  secondaryText?: string;
+}
+
 export interface SfxEvent {
   type: 'whoosh' | 'pop' | 'impact';
   frame: number;
+  volume: number;
+}
+
+export interface BgmConfig {
+  enabled: boolean;
   volume: number;
 }
 
@@ -42,5 +57,7 @@ export interface TimelineData {
   arollCuts: ArollCut[];
   brollOverlays: BrollOverlay[];
   captions: CaptionBlock[];
+  callouts?: CalloutOverlay[];
   sfxEvents: SfxEvent[];
+  bgm?: BgmConfig;
 }
