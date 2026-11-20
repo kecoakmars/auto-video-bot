@@ -1,0 +1,25 @@
+name: 00 - Tes Koneksi Drive
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-drive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Google Drive Client
+        run: pip install google-api-python-client google-auth
+
+      - name: Cek Koneksi & Folder Google Drive
+        env:
+          GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
+          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+        run: python engine-ai/drive_sync.py
