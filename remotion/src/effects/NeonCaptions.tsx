@@ -1,5 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import '../fonts';
 import { CaptionBlock } from '../types';
 
 export const NeonCaptions: React.FC<{ captions: CaptionBlock[] }> = ({ captions }) => {
@@ -19,9 +20,9 @@ export const NeonCaptions: React.FC<{ captions: CaptionBlock[] }> = ({ captions 
       style={{
         justifyContent: 'flex-end',
         alignItems: 'center',
-        paddingBottom: 430, // Zona aman di atas UI bawah TikTok/Reels
-        paddingLeft: 80,
-        paddingRight: 110, // Zona aman dari tombol Like/Comment kanan
+        paddingBottom: 440, // Zona aman di atas UI bawah TikTok/Reels
+        paddingLeft: 70,
+        paddingRight: 110, // Zona aman dari tombol kanan
         pointerEvents: 'none',
       }}
     >
@@ -31,7 +32,7 @@ export const NeonCaptions: React.FC<{ captions: CaptionBlock[] }> = ({ captions 
           flexWrap: 'wrap',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: '14px 18px',
+          gap: '12px 18px',
           textAlign: 'center',
         }}
       >
@@ -40,30 +41,37 @@ export const NeonCaptions: React.FC<{ captions: CaptionBlock[] }> = ({ captions 
           const pop = spring({
             frame: Math.max(0, frame - w.startFrame),
             fps,
-            config: { damping: 14, stiffness: 260, mass: 0.5 },
+            config: { damping: 13, stiffness: 280, mass: 0.45 },
           });
 
-          const baseScale = w.isNeon ? 1.12 : 1.0;
-          const activeScale = isSpoken ? baseScale * (0.9 + 0.1 * pop) : 0.94;
+          const isRed = w.neonColor === 'red';
+          const neonHex = isRed ? '#FF3B30' : '#39FF14';
+          const neonGlow = isRed
+            ? '0 0 16px rgba(255, 59, 48, 0.95), 0 0 36px rgba(255, 59, 48, 0.6), 0 6px 14px rgba(0, 0, 0, 0.98)'
+            : '0 0 16px rgba(57, 255, 20, 0.95), 0 0 36px rgba(57, 255, 20, 0.6), 0 6px 14px rgba(0, 0, 0, 0.98)';
+
+          const baseScale = w.isNeon ? 1.14 : 1.0;
+          const activeScale = isSpoken ? baseScale * (0.88 + 0.12 * pop) : 0.92;
 
           return (
             <span
               key={idx}
               style={{
-                fontFamily: 'Inter, Montserrat, system-ui, -apple-system, sans-serif',
+                fontFamily: 'Geist, Montserrat, Inter, system-ui, sans-serif',
                 fontWeight: 900,
-                fontSize: w.isNeon ? 68 : 60,
-                lineHeight: 1.15,
+                fontSize: w.isNeon ? 76 : 68,
+                lineHeight: 1.12,
                 textTransform: 'uppercase',
                 letterSpacing: '-0.02em',
-                color: w.isNeon ? '#39FF14' : '#FFFFFF',
-                opacity: isSpoken ? 1 : 0.42,
+                color: w.isNeon ? neonHex : '#FFFFFF',
+                opacity: isSpoken ? 1 : 0.45,
                 transform: `scale(${activeScale})`,
                 display: 'inline-block',
+                paintOrder: 'stroke fill',
+                WebkitTextStroke: '7px #000000',
                 textShadow: w.isNeon
-                  ? '0 0 14px rgba(57, 255, 20, 0.9), 0 0 32px rgba(57, 255, 20, 0.55), 0 5px 12px rgba(0, 0, 0, 0.95)'
-                  : '0 4px 12px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.9)',
-                WebkitTextStroke: '2px rgba(0, 0, 0, 0.85)',
+                  ? neonGlow
+                  : '0 6px 14px rgba(0, 0, 0, 0.98), 0 2px 4px rgba(0, 0, 0, 1)',
               }}
             >
               {w.text}
