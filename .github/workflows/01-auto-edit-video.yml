@@ -46,6 +46,9 @@ jobs:
         env:
           GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
           TARGET_FOLDER: ${{ inputs.target_folder }}
         run: python engine-ai/prep_and_transcribe.py
 
@@ -67,4 +70,14 @@ jobs:
         env:
           GDRIVE_ROOT_FOLDER_ID: ${{ secrets.GDRIVE_ROOT_FOLDER_ID }}
           GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
         run: python engine-ai/finish_upload.py
+
+      - name: Simpan Cadangan Video di GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hasil-render-${{ inputs.target_folder || 'video' }}
+          path: remotion/out/final.mp4
+          retention-days: 3
