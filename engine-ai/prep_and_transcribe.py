@@ -13,7 +13,6 @@ def run_cmd(cmd):
     return result
 
 def get_video_info(path):
-    # Ambil durasi video
     cmd_dur = [
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", path
@@ -24,7 +23,6 @@ def get_video_info(path):
     except ValueError:
         duration = 0.0
 
-    # Cek rata-rata volume suara untuk membedakan talking head vs B-roll
     cmd_vol = [
         "ffmpeg", "-i", path, "-af", "volumedetect", "-vn", "-sn", "-dn",
         "-f", "null", "/dev/null"
@@ -62,22 +60,26 @@ def main():
     os.makedirs("workspace/thumbs", exist_ok=True)
     os.makedirs("remotion/public/broll", exist_ok=True)
 
-    print("=== 1. MENGUNDUH BAHAN DARI GOOGLE DRIVE ===")
-    files = download_bahan_video("workspace/raw")
-    if not files:
-        raise RuntimeError("Folder 02-Bahan-Video kosong! Upload video A-roll terlebih dahulu.")
+    target_folder = os.environ.get("TARGET_FOLDER", "").strip() or None
 
-    print("\n=== 2. MEMISAHKAN A-ROLL & B-ROLL SECARA OTOMATIS ===")
+    print("=== 1. MENGUNDUH BAHAN DARI GOOGLE DRIVE ===")
+    download_res = download_bahan_video("workspace/raw", target_folder_name=target_folder)
+    files = download_res["files"]
+    project_name = download_res["project_name"]
+    project_folder_id = download_res["project_folder_id"]
+
+    if not files:
+        raise RuntimeError(f"Folder '{project_name}' kosong! Upload video terlebih dahulu.")
+
+    print(f"\n=== 2. MEMISAHKAN A-ROLL & B-ROLL ({project_name}) ===")
     analyzed = []
     for f in files:
         dur, vol = get_video_info(f["local_path"])
         print(f"- {f['name']}: durasi={dur:.1f}s, volume={vol:.1f}dB")
         analyzed.append({**f, "duration": dur, "mean_vol": vol})
 
-    # Klip >= 7 detik dengan suara bicara (> -40 dB) dianggap A-Roll
     aroll_list = [x for x in analyzed if x["duration"] >= 7.0 and x["mean_vol"] > -40.0]
     if not aroll_list:
-        # Fallback: ambil klip terpanjang sebagai A-Roll
         analyzed.sort(key=lambda x: x["duration"], reverse=True)
         aroll_list = [analyzed[0]]
 
@@ -161,6 +163,8 @@ def main():
                 })
 
     manifest = {
+        "project_name": project_name,
+        "project_folder_id": project_folder_id,
         "aroll_src": "aroll.mp4",
         "aroll_duration": round(final_aroll_dur, 3),
         "segments": segments_data,
@@ -172,7 +176,7 @@ def main():
     with open("workspace/prep_manifest.json", "w", encoding="utf-8") as mf:
         json.dump(manifest, mf, indent=2, ensure_ascii=False)
 
-    print(f"\n[SELESAI] Total kata tertranskripsi: {len(words_data)} | Durasi bersih A-Roll: {final_aroll_dur:.1f}s")
+    print(f"\n[SELESAI] Proyek: {project_name} | Total kata: {len(words_data)} | Durasi bersih: {final_aroll_dur:.1f}s")
 
 if __name__ == "__main__":
     main()
