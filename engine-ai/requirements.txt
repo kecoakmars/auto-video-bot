@@ -1,5 +1,0 @@
-google-genai>=3.2.0
-google-api-python-client>=2.100.0
-google-auth>=2.23.0
-auto-editor>=24.0.0
-faster-whisper>=1.0.0
